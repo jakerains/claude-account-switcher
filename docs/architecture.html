@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Claude Account Switcher Architecture</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101418;
+      --surface: #171d23;
+      --surface-2: #202831;
+      --line: #34424f;
+      --text: #edf4f8;
+      --muted: #a7b4bf;
+      --teal: #4fd1c5;
+      --blue: #74a7ff;
+      --green: #8bd17c;
+      --amber: #f6c453;
+      --rose: #ff8a8a;
+      --violet: #b999ff;
+      --ink: #0b1014;
+      --radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.45;
+    }
+
+    main {
+      min-height: 100vh;
+    }
+
+    .wrap {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 0 auto;
+    }
+
+    .hero {
+      min-height: 92vh;
+      display: grid;
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+      background:
+        linear-gradient(120deg, rgba(79, 209, 197, .10), transparent 34%),
+        linear-gradient(260deg, rgba(246, 196, 83, .08), transparent 38%),
+        var(--bg);
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.1fr;
+      gap: 48px;
+      align-items: center;
+      padding: 56px 0;
+    }
+
+    .eyebrow {
+      color: var(--teal);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-transform: uppercase;
+      margin: 0 0 12px;
+    }
+
+    h1 {
+      font-size: clamp(40px, 6vw, 72px);
+      line-height: 1.02;
+      letter-spacing: 0;
+      margin: 0;
+    }
+
+    .hero-copy {
+      color: var(--muted);
+      font-size: clamp(17px, 2vw, 21px);
+      max-width: 650px;
+      margin: 22px 0 0;
+    }
+
+    .terminal {
+      background: #0c1116;
+      border: 1px solid #2a3641;
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, .34);
+    }
+
+    .terminal-bar {
+      height: 36px;
+      background: #151c23;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 14px;
+      border-bottom: 1px solid #27333e;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--rose);
+    }
+
+    .dot:nth-child(2) { background: var(--amber); }
+    .dot:nth-child(3) { background: var(--green); }
+
+    .terminal-body {
+      padding: 22px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 14px;
+      min-height: 370px;
+    }
+
+    .prompt {
+      color: var(--green);
+      margin-bottom: 14px;
+    }
+
+    .screen {
+      border: 1px solid #35414c;
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: #111820;
+    }
+
+    .screen-head {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border-bottom: 1px solid #35414c;
+      color: var(--teal);
+      font-weight: 700;
+    }
+
+    .screen-grid {
+      display: grid;
+      grid-template-columns: 130px 1fr;
+      min-height: 230px;
+    }
+
+    .profiles {
+      border-right: 1px solid #35414c;
+      padding: 12px;
+      color: var(--muted);
+    }
+
+    .profile {
+      padding: 8px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      background: #202c37;
+      color: var(--text);
+    }
+
+    .profile.alt {
+      background: transparent;
+      border: 1px solid #33414d;
+      color: var(--muted);
+    }
+
+    .panel {
+      padding: 14px;
+    }
+
+    .status-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .status {
+      border: 1px solid #32414d;
+      border-radius: 6px;
+      padding: 10px;
+      color: var(--muted);
+    }
+
+    .status strong {
+      display: block;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+
+    section {
+      padding: 72px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h2 {
+      font-size: clamp(28px, 4vw, 44px);
+      line-height: 1.08;
+      margin: 0 0 14px;
+      letter-spacing: 0;
+    }
+
+    .section-copy {
+      color: var(--muted);
+      max-width: 760px;
+      font-size: 18px;
+      margin: 0 0 34px;
+    }
+
+    .architecture {
+      display: grid;
+      grid-template-columns: 1fr 80px 1fr;
+      gap: 18px;
+      align-items: center;
+    }
+
+    .stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .node {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      padding: 16px;
+      min-height: 84px;
+    }
+
+    .node h3 {
+      margin: 0 0 6px;
+      font-size: 18px;
+    }
+
+    .node p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .node.teal { border-color: rgba(79, 209, 197, .65); }
+    .node.blue { border-color: rgba(116, 167, 255, .7); }
+    .node.amber { border-color: rgba(246, 196, 83, .75); }
+    .node.green { border-color: rgba(139, 209, 124, .7); }
+    .node.rose { border-color: rgba(255, 138, 138, .7); }
+
+    .arrow {
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+      display: grid;
+      gap: 18px;
+      justify-items: center;
+    }
+
+    .arrow-line {
+      width: 2px;
+      height: 54px;
+      background: var(--line);
+      position: relative;
+    }
+
+    .arrow-line::after {
+      content: "";
+      position: absolute;
+      bottom: -1px;
+      left: 50%;
+      transform: translateX(-50%) rotate(45deg);
+      width: 9px;
+      height: 9px;
+      border-right: 2px solid var(--line);
+      border-bottom: 2px solid var(--line);
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+    }
+
+    .step {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 18px;
+      position: relative;
+      min-height: 190px;
+    }
+
+    .num {
+      display: inline-grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      background: var(--teal);
+      color: var(--ink);
+      font-weight: 800;
+      margin-bottom: 14px;
+    }
+
+    .step h3 {
+      margin: 0 0 8px;
+      font-size: 18px;
+    }
+
+    .step p {
+      color: var(--muted);
+      margin: 0;
+      font-size: 14px;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    .bucket {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .bucket h3 {
+      margin: 0;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .bucket.shared h3 { color: var(--green); }
+    .bucket.private h3 { color: var(--amber); }
+
+    .bucket ul {
+      margin: 0;
+      padding: 16px 20px 20px 34px;
+      color: var(--muted);
+    }
+
+    .bucket li + li {
+      margin-top: 8px;
+    }
+
+    .command-map {
+      display: grid;
+      gap: 12px;
+      margin-top: 28px;
+    }
+
+    .command {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 14px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      padding: 12px 14px;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: var(--teal);
+      word-break: break-word;
+    }
+
+    .command span {
+      color: var(--muted);
+    }
+
+    .footer {
+      padding: 36px 0 52px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    @media (max-width: 880px) {
+      .hero-grid,
+      .architecture,
+      .split,
+      .flow {
+        grid-template-columns: 1fr;
+      }
+
+      .arrow {
+        display: none;
+      }
+
+      .command {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="hero">
+      <div class="wrap hero-grid">
+        <div>
+          <p class="eyebrow">Claude Account Switcher</p>
+          <h1>One Claude experience. Multiple usage accounts.</h1>
+          <p class="hero-copy">
+            The switcher gives every alias the same MCPs, skills, plugins, sessions, resumes,
+            history, settings, and project state. The only thing that changes is the Claude
+            account credential used for subscription usage.
+          </p>
+        </div>
+
+        <div class="terminal" aria-label="OpenTUI manager mockup">
+          <div class="terminal-bar">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+          </div>
+          <div class="terminal-body">
+            <div class="prompt">$ cca</div>
+            <div class="screen">
+              <div class="screen-head">
+                <span>Claude Account Switcher</span>
+                <span>tab: dashboard</span>
+              </div>
+              <div class="screen-grid">
+                <div class="profiles">
+                  <div class="profile">work<br><small>claude-work</small></div>
+                  <div class="profile alt">me<br><small>claude-me</small></div>
+                  <div class="profile alt">team<br><small>claude-team</small></div>
+                </div>
+                <div class="panel">
+                  <strong>Selected profile</strong>
+                  <p style="color: var(--muted); margin: 6px 0 0;">Alias: claude-work</p>
+                  <div class="status-row">
+                    <div class="status"><strong>MCP OAuth</strong>shared</div>
+                    <div class="status"><strong>Claude OAuth</strong>work only</div>
+                    <div class="status"><strong>Sessions</strong>shared</div>
+                    <div class="status"><strong>Usage</strong>work account</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <section>
+      <div class="wrap">
+        <h2>Architecture</h2>
+        <p class="section-copy">
+          Generated aliases do not replace Claude Code. They route commands through a thin
+          sync layer, prepare the selected profile, then hand control to the real Claude binary.
+        </p>
+
+        <div class="architecture">
+          <div class="stack">
+            <div class="node teal">
+              <h3>OpenTUI Manager</h3>
+              <p><code>cca</code> opens a terminal UI for profiles, health checks, login, repair, and logs.</p>
+            </div>
+            <div class="node blue">
+              <h3>Generated Aliases</h3>
+              <p><code>claude-work</code> and friends call <code>cca run profile -- "$@"</code>.</p>
+            </div>
+            <div class="node amber">
+              <h3>Sync Engine</h3>
+              <p>Splits first-party Claude auth from shared MCP and experience state.</p>
+            </div>
+          </div>
+
+          <div class="arrow" aria-hidden="true">
+            <span>prepare</span>
+            <div class="arrow-line"></div>
+            <span>launch</span>
+            <div class="arrow-line"></div>
+            <span>merge</span>
+          </div>
+
+          <div class="stack">
+            <div class="node green">
+              <h3>Shared Claude Experience</h3>
+              <p>MCPs, skills, plugins, settings, sessions, history, resumes, projects, tasks.</p>
+            </div>
+            <div class="node rose">
+              <h3>Profile Account State</h3>
+              <p>Only Claude account OAuth and first-party subscription metadata stay private.</p>
+            </div>
+            <div class="node violet">
+              <h3>Real Claude Code</h3>
+              <p>The original <code>claude</code> executable receives every argument unchanged.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <h2>Command lifecycle</h2>
+        <p class="section-copy">
+          This is what happens when a user runs <code>claude-work mcp login github</code>
+          or any other Claude command through a profile.
+        </p>
+
+        <div class="flow">
+          <div class="step">
+            <span class="num">1</span>
+            <h3>Alias captures intent</h3>
+            <p>The shell function forwards the profile name plus the exact user arguments to <code>cca run</code>.</p>
+          </div>
+          <div class="step">
+            <span class="num">2</span>
+            <h3>Profile is materialized</h3>
+            <p>The sync engine builds a <code>CLAUDE_CONFIG_DIR</code> with shared experience state plus profile Claude auth.</p>
+          </div>
+          <div class="step">
+            <span class="num">3</span>
+            <h3>Claude runs normally</h3>
+            <p>The real Claude Code binary runs with inherited stdio. Model names and flags are never rewritten.</p>
+          </div>
+          <div class="step">
+            <span class="num">4</span>
+            <h3>Changes merge back</h3>
+            <p>MCP auth and experience changes become shared. Claude account credentials stay with the selected profile.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <h2>State split</h2>
+        <p class="section-copy">
+          The product is intentionally strict about what is private. MCP authorization is shared;
+          Claude subscription identity is not.
+        </p>
+
+        <div class="split">
+          <div class="bucket shared">
+            <h3>Shared across every profile</h3>
+            <ul>
+              <li>MCP server config and MCP OAuth</li>
+              <li>Skills, plugins, commands, agents, and hooks</li>
+              <li>Settings, projects, tasks, sessions, resumes, and history</li>
+              <li>Local MCP approvals and health caches</li>
+            </ul>
+          </div>
+          <div class="bucket private">
+            <h3>Private to one profile</h3>
+            <ul>
+              <li>Claude/Anthropic OAuth credential</li>
+              <li>Claude account identity fields</li>
+              <li>Subscription and usage-plan metadata</li>
+              <li>Account-specific access caches</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="command-map">
+          <div class="command">
+            <code>cca</code>
+            <span>Open the OpenTUI manager.</span>
+          </div>
+          <div class="command">
+            <code>cca add work --alias claude-work</code>
+            <span>Create a profile and shell function.</span>
+          </div>
+          <div class="command">
+            <code>claude-work auth login</code>
+            <span>Log into the Claude account that pays for work-profile usage.</span>
+          </div>
+          <div class="command">
+            <code>claude-work mcp login github</code>
+            <span>Authorize an MCP once; the token is shared with other profiles.</span>
+          </div>
+          <div class="command">
+            <code>claude-me --resume</code>
+            <span>Resume from the same shared conversation history using the me-profile account.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div class="wrap">
+        Claude Account Switcher is a local sync wrapper. It does not proxy Claude traffic,
+        alter models, or reinterpret Claude Code commands.
+      </div>
+    </footer>
+  </main>
+</body>
+</html>
