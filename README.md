@@ -8,6 +8,7 @@ The goal is simple:
 - Each profile draws Claude usage from its own logged-in Claude account.
 - MCP servers, MCP OAuth, skills, plugins, settings, sessions, resumes, history, and project state are shared.
 - Model names and Claude arguments are passed through unchanged.
+- Normal alias commands route directly to the real Claude binary. No wrapper or proxy stays in the hot path.
 
 ## Requirements
 
@@ -36,7 +37,8 @@ bun run start
 cca                         # Open the OpenTUI manager
 cca init                    # Initialize config and shell integration
 cca add work --alias claude-work
-cca run work -- --version
+claude-work --version       # Direct Claude launch with profile config
+cca run-managed work -- mcp list
 cca doctor
 ```
 
@@ -47,6 +49,13 @@ source "$HOME/.config/claude-account-switcher/aliases.zsh"
 ```
 
 ## Sync Model
+
+Generated aliases use two paths:
+
+- Normal commands: `CLAUDE_CONFIG_DIR=<profile> claude "$@"`
+- MCP commands: `cca run-managed <profile> -- "$@"`
+
+The managed path exists because MCP config and MCP OAuth need to merge back into shared state. Daily agent runs, resumes, prompts, and model calls do not go through a long-running wrapper.
 
 Profile-specific:
 

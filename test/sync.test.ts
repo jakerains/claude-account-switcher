@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { mergeClaudeJson, mergeCredentials, splitClaudeJson, splitCredentials } from "../src/lib/sync";
+import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { materializeProfile, mergeClaudeJson, mergeCredentials, splitClaudeJson, splitCredentials } from "../src/lib/sync";
 import { shellIntegration } from "../src/lib/shell";
-import type { AppConfig } from "../src/lib/types";
+import type { AppConfig, Profile } from "../src/lib/types";
 
 describe("credential sync policy", () => {
   test("keeps Claude account auth profile-specific and MCP OAuth shared", () => {
@@ -46,7 +49,7 @@ describe("claude json sync policy", () => {
 });
 
 describe("shell integration", () => {
-  test("generates passthrough shell functions", () => {
+  test("generates direct passthrough shell functions for normal commands", () => {
     const config: AppConfig = {
       version: 1,
       claudePath: "/usr/local/bin/claude",
@@ -60,7 +63,52 @@ describe("shell integration", () => {
     };
 
     expect(shellIntegration(config)).toContain("claude-work() {");
-    expect(shellIntegration(config)).toContain("cca run 'work' -- \"$@\"");
+    expect(shellIntegration(config)).toContain("CLAUDE_CONFIG_DIR='/tmp/profiles/work' '/usr/local/bin/claude' \"$@\"");
+  });
+
+  test("routes MCP commands through the managed sync path", () => {
+    const config: AppConfig = {
+      version: 1,
+      claudePath: "/usr/local/bin/claude",
+      sharedClaudeDir: "/tmp/.claude",
+      sharedClaudeJson: "/tmp/.claude.json",
+      profilesDir: "/tmp/profiles",
+      shellIntegrationPath: "/tmp/aliases.zsh",
+      profiles: [
+        { name: "work", alias: "claude-work", createdAt: "now", updatedAt: "now" },
+      ],
+    };
+
+    expect(shellIntegration(config)).toContain("mcp) cca run-managed 'work' -- \"$@\" ;;");
   });
 });
 
+describe("materializeProfile", () => {
+  test("preserves Claude auth written by direct alias login", async () => {
+    const root = await mkdtemp(join(tmpdir(), "cca-test-"));
+    const sharedClaudeDir = join(root, "shared");
+    const profilesDir = join(root, "profiles");
+    const profileRoot = join(profilesDir, "work");
+    await mkdir(sharedClaudeDir, { recursive: true });
+    await mkdir(profileRoot, { recursive: true });
+    await writeFile(join(sharedClaudeDir, ".credentials.json"), JSON.stringify({ mcpOAuth: { github: "shared" } }));
+    await writeFile(join(root, ".claude.json"), JSON.stringify({ mcpServers: { github: { type: "http" } } }));
+    await writeFile(join(profileRoot, ".credentials.json"), JSON.stringify({ claudeAiOauth: { account: "work" } }));
+
+    const profile: Profile = { name: "work", alias: "claude-work", createdAt: "now", updatedAt: "now" };
+    const config: AppConfig = {
+      version: 1,
+      claudePath: "/usr/local/bin/claude",
+      sharedClaudeDir,
+      sharedClaudeJson: join(root, ".claude.json"),
+      profilesDir,
+      shellIntegrationPath: join(root, "aliases.zsh"),
+      profiles: [profile],
+    };
+
+    await materializeProfile(config, profile);
+    const merged = JSON.parse(await readFile(join(profileRoot, ".credentials.json"), "utf8"));
+    expect(merged.claudeAiOauth).toEqual({ account: "work" });
+    expect(merged.mcpOAuth).toEqual({ github: "shared" });
+  });
+});

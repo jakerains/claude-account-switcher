@@ -1,7 +1,7 @@
 import { collectProfileChanges, materializeProfile } from "./sync";
 import { findProfile, loadConfig } from "./config";
 
-export async function runClaude(profileName: string, args: string[]) {
+export async function runManagedClaude(profileName: string, args: string[]) {
   const config = await loadConfig();
   const profile = findProfile(config, profileName);
   const prepared = await materializeProfile(config, profile);
@@ -20,4 +20,3 @@ export async function runClaude(profileName: string, args: string[]) {
   await collectProfileChanges(config, profile);
   return code;
 }
-

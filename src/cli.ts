@@ -1,7 +1,7 @@
 import { addProfile, doctor, findProfile, initConfig, loadConfig, removeProfile } from "./lib/config";
 import { writeShellIntegration } from "./lib/shell";
 import { materializeProfile, syncRoundTrip } from "./lib/sync";
-import { runClaude } from "./lib/runner";
+import { runManagedClaude } from "./lib/runner";
 
 function printHelp() {
   console.log(`Claude Account Switcher
@@ -13,7 +13,8 @@ Usage:
   cca list                    List profiles
   cca doctor                  Check installation health
   cca remove <name>           Remove a profile alias from config
-  cca run <name> -- [args]    Run Claude through a profile
+  cca run-managed <name> -- [args]
+                              Run Claude with pre/post shared-state sync
 `);
 }
 
@@ -45,6 +46,7 @@ export async function handleCli(args: string[]) {
     await writeShellIntegration(config);
     console.log(`Added ${profile.name} as ${profile.alias}`);
     console.log(`Login with: ${profile.alias} auth login`);
+    console.log(`Run normal commands directly through the alias: ${profile.alias} --version`);
     return true;
   }
   if (command === "list") {
@@ -83,15 +85,14 @@ export async function handleCli(args: string[]) {
     console.log(`Synced ${profile.name}: ${result.profileDir}`);
     return true;
   }
-  if (command === "run") {
+  if (command === "run-managed" || command === "run") {
     const name = args[1];
-    if (!name) throw new Error("Usage: cca run <name> -- [claude args]");
+    if (!name) throw new Error("Usage: cca run-managed <name> -- [claude args]");
     const marker = args.indexOf("--");
     const claudeArgs = marker === -1 ? args.slice(2) : args.slice(marker + 1);
-    const code = await runClaude(name, claudeArgs);
+    const code = await runManagedClaude(name, claudeArgs);
     process.exitCode = code;
     return true;
   }
   throw new Error(`Unknown command: ${command}`);
 }
-

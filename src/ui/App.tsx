@@ -99,7 +99,7 @@ function ProfilesView({ config }: { config: AppConfig }) {
       ) : (
         config.profiles.map((profile) => (
           <text key={profile.name} fg={colors.text}>
-            {profile.alias} {"->"} cca run {profile.name} -- "$@"
+            {profile.alias} {"->"} direct Claude route, managed MCP sync
           </text>
         ))
       )}

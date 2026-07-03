@@ -102,6 +102,10 @@ export function mergeClaudeJson(shared: JsonObject, profile: JsonObject) {
   return { ...shared, ...profile };
 }
 
+function hasKeys(value: JsonObject) {
+  return Object.keys(value).length > 0;
+}
+
 async function safeLink(source: string, target: string, warnings: string[]) {
   if (!await exists(source)) return;
   if (await exists(target)) {
@@ -136,15 +140,21 @@ export async function materializeProfile(config: AppConfig, profile: Profile): P
       await safeLink(join(config.sharedClaudeDir, entry), join(root, entry), warnings);
     }
 
+    const profileCredentialsPath = join(root, ".credentials.json");
     const sharedCredentialsPath = join(config.sharedClaudeDir, ".credentials.json");
     const sharedCredentials = splitCredentials(await readJsonObject(sharedCredentialsPath));
+    const existingProfileCredentials = splitCredentials(await readJsonObject(profileCredentialsPath));
     const privateCredentials = await readProfilePrivate(root, "account-credentials.json");
-    await writeJsonObject(join(root, ".credentials.json"), mergeCredentials(sharedCredentials.shared, privateCredentials, sharedCredentials.unknown));
+    const profileCredentials = hasKeys(privateCredentials) ? privateCredentials : existingProfileCredentials.profile;
+    await writeJsonObject(profileCredentialsPath, mergeCredentials(sharedCredentials.shared, profileCredentials, { ...sharedCredentials.unknown, ...existingProfileCredentials.unknown }));
 
+    const profileClaudeJsonPath = join(root, ".claude.json");
     const sharedClaudeJson = await readJsonObject(config.sharedClaudeJson);
     const sharedJsonSplit = splitClaudeJson(sharedClaudeJson);
+    const existingProfileJson = splitClaudeJson(await readJsonObject(profileClaudeJsonPath));
     const privateJson = await readProfilePrivate(root, "account-state.json");
-    await writeJsonObject(join(root, ".claude.json"), mergeClaudeJson(sharedJsonSplit.shared, privateJson));
+    const profileJson = hasKeys(privateJson) ? privateJson : existingProfileJson.profile;
+    await writeJsonObject(profileClaudeJsonPath, mergeClaudeJson(sharedJsonSplit.shared, profileJson));
 
     return { profileDir: root, sharedEntries: SHARED_DOT_CLAUDE_ENTRIES, warnings };
   });
@@ -191,4 +201,3 @@ export async function syncRoundTrip(config: AppConfig, profile: Profile) {
   await materializeProfile(config, profile);
   return collectProfileChanges(config, profile);
 }
-
