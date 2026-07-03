@@ -1,0 +1,35 @@
+{
+  "name": "claude-account-switcher",
+  "version": "0.1.0",
+  "description": "OpenTUI manager for Claude Code account aliases with shared experience state.",
+  "type": "module",
+  "bin": {
+    "cca": "./bin/cca"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "start": "bun run src/index.tsx",
+    "dev": "bun --watch run src/index.tsx",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "build": "bun build src/index.tsx --outdir=dist --target=bun",
+    "verify": "bun run typecheck && bun test"
+  },
+  "dependencies": {
+    "@opentui/core": "^0.4.2",
+    "@opentui/react": "^0.4.2",
+    "react": "^19.2.6"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/react": "^19.2.6",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "bun": ">=1.2.0"
+  }
+}
